@@ -660,8 +660,37 @@
   </div><!-- /app -->
 
   <script>
+    // ── Authentication States & Guard ───────────────────────────
+    let isAuthenticated = false;
+
+    function checkAuth() {
+      if (!isAuthenticated) {
+        // Force the app structure to hide until logged in
+        document.getElementById('sidebar').style.display = 'none';
+        document.querySelector('.topbar').style.display = 'none';
+        document.querySelector('.main').style.marginLeft = '0';
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-login').classList.add('active');
+      } else {
+        document.getElementById('sidebar').style.display = 'flex';
+        document.querySelector('.topbar').style.display = 'flex';
+        // Reset sidebar margin for desktop layouts
+        if (window.innerWidth > 900) {
+          document.querySelector('.main').style.marginLeft = 'var(--sidebar-w)';
+        }
+      }
+    }
+
+    // Call layout check on startup
+    checkAuth();
+
     // ── Navigation ──────────────────────────────────────────────
     function navigate(page) {
+      if (!isAuthenticated && page !== 'login') {
+        checkAuth();
+        return;
+      }
+
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const target = document.getElementById('page-' + page);
       if (target) target.classList.add('active');
@@ -682,6 +711,44 @@
         e.preventDefault();
         navigate(el.getAttribute('data-page'));
       }
+    });
+
+    // ── Login Form Logic ──────────────────────────────────────────
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const errorDiv = document.getElementById('login-error');
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          isAuthenticated = true;
+          errorDiv.style.display = 'none';
+          checkAuth();
+          navigate('dashboard');
+        } else {
+          errorDiv.textContent = data.message || 'Login failed';
+          errorDiv.style.display = 'block';
+        }
+      } catch (err) {
+        errorDiv.textContent = 'Server connectivity issue';
+        errorDiv.style.display = 'block';
+      }
+    });
+
+    // ── Logout Logic ──────────────────────────────────────────────
+    document.getElementById('logoutBtn').addEventListener('click', function(e) {
+      e.preventDefault();
+      isAuthenticated = false;
+      document.getElementById('login-password').value = ''; // clear password field
+      checkAuth();
     });
 
     // ── Sidebar ──────────────────────────────────────────────────
